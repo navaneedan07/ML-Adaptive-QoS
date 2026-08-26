@@ -1,0 +1,7 @@
+scapy
+pandas
+scikit-learn
+imbalanced-learn
+joblib
+matplotlib
+seaborn

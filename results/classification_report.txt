@@ -1,0 +1,24 @@
+=== Random Forest ===
+              precision    recall  f1-score   support
+
+        chat       0.27      0.25      0.26       191
+       email       0.99      0.97      0.98       629
+   streaming       0.34      0.58      0.43        97
+        voip       0.98      0.98      0.98     10935
+
+    accuracy                           0.96     11852
+   macro avg       0.65      0.69      0.66     11852
+weighted avg       0.97      0.96      0.97     11852
+
+
+=== SVM ===
+              precision    recall  f1-score   support
+
+        chat       0.44      0.11      0.18       191
+       email       0.90      0.84      0.87       629
+   streaming       0.20      0.64      0.30        97
+        voip       0.98      0.98      0.98     10935
+
+    accuracy                           0.95     11852
+   macro avg       0.63      0.64      0.58     11852
+weighted avg       0.96      0.95      0.95     11852

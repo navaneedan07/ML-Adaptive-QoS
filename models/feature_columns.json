@@ -1,0 +1,15 @@
+{
+  "feature_cols": [
+    "flow_duration",
+    "packet_count",
+    "total_bytes",
+    "mean_packet_size",
+    "std_packet_size",
+    "mean_iat",
+    "std_iat",
+    "num_bursts",
+    "mean_burst_size",
+    "is_vpn"
+  ],
+  "label_col": "label"
+}

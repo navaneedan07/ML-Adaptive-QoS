@@ -140,7 +140,7 @@ if __name__ == "__main__":
     pcap_target, output_csv = sys.argv[1], sys.argv[2]
 
     from capture import parse_pcap, parse_folder
-    from traffic.flow_builder import build_flows
+    from flow_builder import build_flows
 
     pkts = parse_folder(pcap_target) if os.path.isdir(pcap_target) else parse_pcap(pcap_target)
     flows = build_flows(pkts)

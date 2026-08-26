@@ -1,2 +1,5 @@
 data/raw/*.pcap
 data/raw/*.pcapng
+__pycache__/
+*.pyc
+ML/out.txt
