@@ -1,0 +1,3 @@
+Scenario,Throughput_Mbps,Jitter_ms,Lost_Packets,Packets,Packet_Loss_Percent
+Best Effort,7.999538855,0.048325752,0,13813,0
+QoS,7.999666034,0.027785587,0,13813,0
