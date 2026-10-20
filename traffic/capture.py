@@ -81,6 +81,8 @@ def parse_folder(folder_path):
     Returns a single flat list of packet dicts across all files.
     """
     all_packets = []
+    if not os.path.isdir(folder_path):
+        raise NotADirectoryError(folder_path)
     for fname in sorted(os.listdir(folder_path)):
         if fname.lower().endswith((".pcap", ".pcapng")):
             full_path = os.path.join(folder_path, fname)

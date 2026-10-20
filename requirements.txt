@@ -1,7 +1,6 @@
-scapy
-pandas
-scikit-learn
-imbalanced-learn
-joblib
-matplotlib
-seaborn
+joblib>=1.3
+numpy>=1.24
+pandas>=2.0
+scapy>=2.5
+scikit-learn>=1.3
+pytest>=8.0

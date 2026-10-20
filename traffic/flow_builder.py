@@ -47,15 +47,17 @@ def build_flows(packets):
         packets       list of packet dicts belonging to this flow, in order
         source_file   pcap filename the flow came from (for labeling)
     """
-    # active_flows[key] -> flow dict currently being built
+    # Include the source capture in the active key. Separate captures can
+    # legitimately reuse the same 5-tuple and must not be merged.
     active_flows = {}
     finished_flows = []
 
     # Process in timestamp order so the timeout logic is meaningful
     for pkt in sorted(packets, key=lambda p: p["timestamp"]):
-        key, forward = _flow_key(pkt)
+        key, _forward = _flow_key(pkt)
+        active_key = (pkt["source_file"], key)
 
-        flow = active_flows.get(key)
+        flow = active_flows.get(active_key)
         if flow is not None:
             last_ts = flow["packets"][-1]["timestamp"]
             if pkt["timestamp"] - last_ts > FLOW_TIMEOUT:
@@ -73,7 +75,7 @@ def build_flows(packets):
                 "packets": [],
                 "source_file": pkt["source_file"],
             }
-            active_flows[key] = flow
+            active_flows[active_key] = flow
 
         flow["packets"].append(pkt)
 

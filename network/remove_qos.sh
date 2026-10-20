@@ -1,8 +1,4 @@
-#!/bin/bash
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "Removing QoS configuration..."
-
-sudo ip netns exec ns1 tc qdisc del dev veth1 root 2>/dev/null || true
-
-echo "QoS removed."
+sudo ip netns exec "${NAMESPACE:-ns1}" tc qdisc del dev "${DEVICE:-veth1}" root 2>/dev/null || true

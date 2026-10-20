@@ -1,45 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "Setting up low-latency QoS..."
+# HTB plus fq_codel prevents the bufferbloat observed with HTB alone.
+DEVICE="${DEVICE:-veth1}"
+NAMESPACE="${NAMESPACE:-ns1}"
 
-# Remove old configuration
-sudo ip netns exec ns1 tc qdisc del dev veth1 root 2>/dev/null || true
+sudo ip netns exec "$NAMESPACE" tc qdisc replace dev "$DEVICE" root handle 1: htb default 30
+sudo ip netns exec "$NAMESPACE" tc class replace dev "$DEVICE" parent 1: classid 1:1 htb rate 10mbit ceil 10mbit
 
-# Root HTB
-sudo ip netns exec ns1 tc qdisc add dev veth1 root handle 1: htb default 20
+for class in 10 20 30; do
+  sudo ip netns exec "$NAMESPACE" tc class replace dev "$DEVICE" parent 1:1 classid "1:$class" htb rate 1mbit ceil 10mbit
+  sudo ip netns exec "$NAMESPACE" tc qdisc replace dev "$DEVICE" parent "1:$class" handle "$class:1" fq_codel
+done
 
-# Total bandwidth
-sudo ip netns exec ns1 tc class add dev veth1 \
-    parent 1: classid 1:1 \
-    htb rate 10mbit ceil 10mbit
-
-# High-priority traffic
-sudo ip netns exec ns1 tc class add dev veth1 \
-    parent 1:1 classid 1:10 \
-    htb rate 7mbit ceil 10mbit prio 0
-
-# Low-priority traffic
-sudo ip netns exec ns1 tc class add dev veth1 \
-    parent 1:1 classid 1:20 \
-    htb rate 3mbit ceil 10mbit prio 1
-
-# Low-latency queues
-sudo ip netns exec ns1 tc qdisc add dev veth1 \
-    parent 1:10 handle 10: fq_codel
-
-sudo ip netns exec ns1 tc qdisc add dev veth1 \
-    parent 1:20 handle 20: fq_codel
-
-# UDP → high priority
-sudo ip netns exec ns1 tc filter add dev veth1 \
-    protocol ip parent 1: \
-    prio 1 flower ip_proto udp \
-    flowid 1:10
-
-# TCP → low priority
-sudo ip netns exec ns1 tc filter add dev veth1 \
-    protocol ip parent 1: \
-    prio 2 flower ip_proto tcp \
-    flowid 1:20
-
-echo "Low-latency QoS configured."
+sudo ip netns exec "$NAMESPACE" tc filter replace dev "$DEVICE" protocol ip parent 1: prio 1 flower ip_proto udp dst_port 5001 flowid 1:10
+sudo ip netns exec "$NAMESPACE" tc filter replace dev "$DEVICE" protocol ip parent 1: prio 2 flower ip_proto tcp dst_port 5002 flowid 1:20

@@ -22,11 +22,15 @@ import collections
 
 
 def balance(input_csv, output_csv, cap=None, seed=42):
+    if cap is not None and cap < 1:
+        raise ValueError("--cap must be a positive integer")
     random.seed(seed)
 
     with open(input_csv, newline="") as f:
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames
+        if not fieldnames or "label" not in fieldnames:
+            raise ValueError("Input CSV must contain a label column")
         rows = list(reader)
 
     by_label = collections.defaultdict(list)
