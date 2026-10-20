@@ -6,12 +6,31 @@ An encryption-safe traffic classification and QoS benchmark pipeline.
 
 1. `traffic/` parses PCAP/PCAPNG files, builds bidirectional flows, extracts
    packet-size/IAT/burst features, and balances classes.
-2. `ml/` trains reproducible Random Forest and SVM baselines, evaluates them,
-   predicts new flows, detects error-rate drift, and exposes class-aware QoS
+2. `qos_ml/` trains reproducible Random Forest and SVM baselines, predicts
+   encrypted-traffic-safe flow requirements, and exposes class-aware QoS
    policy mappings.
 3. `network/` creates an optional Linux namespace testbed, applies HTB plus
    `fq_codel`, measures latency/iperf3 results, and compares benchmark runs.
 4. `api/` exposes a local health/status dashboard and feedback endpoint.
+
+The runtime is one closed-loop system rather than separate scripts:
+
+```text
+packet capture
+    -> flow features
+    -> requirement/classification model
+    -> QoS policy (queue + DSCP)
+    -> tc/iptables enforcement
+    -> RTT and queue metrics
+    -> parent adaptive drift model
+    -> retraining and policy adaptation
+```
+
+For example, a user generating sustained video traffic is classified as
+`streaming`, mapped to DSCP 26 and queue `1:20`, and monitored continuously.
+The parent drift model combines classification errors with RTT spikes and new
+queue drops, so adaptation can begin even when ground-truth labels are not
+available.
 
 ## Quick start
 
@@ -60,7 +79,8 @@ This defaults to **dry-run enforcement**. Add `--enforce` only on a
 privileged Linux host after `setup_network.sh` and `setup_qos.sh`; predictions
 then drive both `tc` class assignment and idempotent iptables DSCP marking.
 The monitor samples RTT and `tc` dropped-packet counters in the background
-when `--monitor-interval` is enabled. The complete path has been validated in
+when `--monitor-interval` is enabled. The parent drift model feeds those
+measurements back into the controller and can trigger retraining. The complete path has been validated in
 WSL2 with real namespaces, ping, iperf3, HTB/fq_codel, `tc` counters, iptables
 DSCP marking, live Scapy packet capture, prediction, and drift-triggered
 retraining. Native Windows supports the API, dry-run controller, offline

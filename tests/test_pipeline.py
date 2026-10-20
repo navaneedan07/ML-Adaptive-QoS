@@ -2,7 +2,7 @@ import csv
 from pathlib import Path
 from unittest.mock import patch
 
-from qos_ml.drift import ErrorRateDriftDetector
+from qos_ml.drift import AdaptiveDriftDetector, ErrorRateDriftDetector
 from qos_ml.qos_policy import policy_for
 from network.analyze_results import read_iperf_result
 from network.enforcer import TcEnforcer
@@ -42,6 +42,15 @@ def test_drift_detector():
     assert not detector.update("voip", "chat")
     assert detector.update("voip", "email")
     assert detector.error_rate == 2 / 3
+
+
+def test_parent_drift_detector_detects_network_degradation():
+    detector = AdaptiveDriftDetector(rtt_multiplier=2.0, drop_delta=1)
+    assert not detector.update_metrics({"rtt_ms": 10, "dropped_packets": 0})
+    assert detector.update_metrics({"rtt_ms": 25, "dropped_packets": 0})
+    assert detector.last_reason == "rtt_spike"
+    assert detector.update_metrics({"rtt_ms": 10, "dropped_packets": 1})
+    assert detector.last_reason == "queue_drops"
 
 
 def test_unknown_qos_class_is_best_effort():

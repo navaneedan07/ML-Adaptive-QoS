@@ -13,7 +13,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from qos_ml.drift import ErrorRateDriftDetector
+from qos_ml.drift import AdaptiveDriftDetector, ErrorRateDriftDetector
 from qos_ml.features import rows_to_features
 from qos_ml.train import train_models
 from network.enforcer import TcEnforcer
@@ -38,7 +38,7 @@ class LiveController:
         self.retrain_output = Path(retrain_output or self.model_path.parent)
         self.enforcer = enforcer or TcEnforcer()
         self.monitor = monitor or QoSMonitor()
-        self.drift = drift or ErrorRateDriftDetector()
+        self.drift = drift or AdaptiveDriftDetector()
         self.model = joblib.load(self.model_path)
         self.lock = threading.RLock()
         self.events: list[dict[str, Any]] = []
@@ -98,6 +98,7 @@ class LiveController:
                 "error_rate": self.drift.error_rate,
                 "retraining": self.retraining,
                 "retrain_error": self.retrain_error,
+                "drift_reason": getattr(self.drift, "last_reason", None),
                 "last_event": self.events[-1] if self.events else None,
                 "metrics": self.monitor.history[-1] if self.monitor.history else None,
             }
@@ -105,7 +106,11 @@ class LiveController:
     def run_monitor(self, interval: float = 10.0, stop: threading.Event | None = None) -> None:
         stop = stop or threading.Event()
         while not stop.is_set():
-            self.monitor.sample()
+            metrics = self.monitor.sample()
+            if hasattr(self.drift, "update_metrics"):
+                metrics_drifted = self.drift.update_metrics(metrics)
+                if metrics_drifted and self.dataset_path and not self.retraining:
+                    threading.Thread(target=self.retrain, daemon=True).start()
             stop.wait(interval)
 
 
