@@ -23,7 +23,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.svm import SVC
 
-from ml.features import CATEGORICAL_COLUMNS, FEATURE_COLUMNS, NUMERIC_COLUMNS, rows_to_features
+from qos_ml.features import CATEGORICAL_COLUMNS, FEATURE_COLUMNS, NUMERIC_COLUMNS, rows_to_features
 
 
 def _load_dataset(path: Path) -> tuple[list[dict[str, Any]], list[str]]:

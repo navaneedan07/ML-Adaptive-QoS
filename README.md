@@ -19,8 +19,8 @@ An encryption-safe traffic classification and QoS benchmark pipeline.
 python -m pip install -r requirements.txt
 python traffic/feature_extractor.py data/raw data/processed/features.csv
 python traffic/balance_classes.py data/processed/features.csv data/processed/features_balanced.csv
-python -m ml.train data/processed/features_balanced.csv --output-dir models
-python -m ml.predict models/random_forest.joblib data/processed/features.csv data/processed/predictions.csv
+python -m qos_ml.train data/processed/features_balanced.csv --output-dir models
+python -m qos_ml.predict models/random_forest.joblib data/processed/features.csv data/processed/predictions.csv
 python -m pytest
 ```
 
@@ -29,7 +29,7 @@ python -m pytest
 Train a model once, then start the controller and its local dashboard:
 
 ```bash
-python -m ml.train data/processed/features_balanced.csv --output-dir models
+python -m qos_ml.train data/processed/features_balanced.csv --output-dir models
 python -m api.server models/random_forest.joblib --dataset data/processed/features_balanced.csv --output-dir models --port 8080 --monitor-interval 10
 ```
 
@@ -50,7 +50,7 @@ For live packet capture on Linux/WSL, run the controller inside the client
 namespace. `--in-namespace` prevents nested `ip netns exec` calls:
 
 ```bash
-sudo ip netns exec ns1 python -m ml.controller models/random_forest.joblib \
+sudo ip netns exec ns1 python -m qos_ml.controller models/random_forest.joblib \
   --dataset data/processed/features_balanced.csv \
   --live --interface veth1 --namespace ns1 --in-namespace \
   --monitor-interval 10
@@ -79,7 +79,7 @@ For a simple recording on Windows, use two terminals. In terminal 1, start the
 API with a trained model and a dataset so retraining is enabled:
 
 ```powershell
-python -m ml.train data\processed\features_balanced.csv --output-dir models
+python -m qos_ml.train data\processed\features_balanced.csv --output-dir models
 python -m api.server models\random_forest.joblib --dataset data\processed\features_balanced.csv --output-dir models --port 8080
 ```
 

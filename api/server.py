@@ -151,7 +151,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--monitor-interval", type=float, default=None)
     args = parser.parse_args()
-    from ml.controller import LiveController
+    from qos_ml.controller import LiveController
     serve(
         LiveController(
             args.model,

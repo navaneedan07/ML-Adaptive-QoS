@@ -9,7 +9,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-from ml.features import rows_to_features
+from qos_ml.features import rows_to_features
 
 
 def predict_file(model_path: str | Path, input_csv: str | Path, output_csv: str | Path) -> int:

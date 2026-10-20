@@ -13,9 +13,9 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from ml.drift import ErrorRateDriftDetector
-from ml.features import rows_to_features
-from ml.train import train_models
+from qos_ml.drift import ErrorRateDriftDetector
+from qos_ml.features import rows_to_features
+from qos_ml.train import train_models
 from network.enforcer import TcEnforcer
 from network.monitor import QoSMonitor
 
@@ -144,7 +144,7 @@ def main() -> None:
             kwargs={"interval": args.monitor_interval, "stop": monitor_stop},
             daemon=True,
         ).start()
-        from ml.live_capture import sniff_forever
+        from qos_ml.live_capture import sniff_forever
         try:
             sniff_forever(controller.classify, interface=args.interface)
         finally:

@@ -2,8 +2,8 @@ import csv
 from pathlib import Path
 from unittest.mock import patch
 
-from ml.drift import ErrorRateDriftDetector
-from ml.qos_policy import policy_for
+from qos_ml.drift import ErrorRateDriftDetector
+from qos_ml.qos_policy import policy_for
 from network.analyze_results import read_iperf_result
 from network.enforcer import TcEnforcer
 from traffic.feature_extractor import extract_features, label_from_filename
@@ -82,9 +82,10 @@ def test_iperf_result_parser():
 
 def test_api_server_cli_passes_retraining_options():
     from api import server
+    import qos_ml.controller
 
     with patch("api.server.serve") as mocked_serve, patch(
-        "ml.controller.LiveController"
+        "qos_ml.controller.LiveController"
     ) as mocked_controller, patch(
         "sys.argv",
         [

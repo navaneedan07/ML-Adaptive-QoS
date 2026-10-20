@@ -11,7 +11,7 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Callable
 
-from ml.qos_policy import policy_for
+from qos_ml.qos_policy import policy_for
 
 
 Runner = Callable[[list[str]], subprocess.CompletedProcess[str]]
