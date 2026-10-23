@@ -11,6 +11,7 @@ from typing import Any
 
 
 MAX_REQUEST_BYTES = 1_048_576
+MAX_LABEL_LENGTH = 64
 
 
 def create_handler(controller: Any) -> type[BaseHTTPRequestHandler]:
@@ -82,7 +83,13 @@ def create_handler(controller: Any) -> type[BaseHTTPRequestHandler]:
                 if path == "/api/classify":
                     self._write(200, controller.classify(payload))
                     return
-                drifted = controller.feedback(str(payload["predicted"]), str(payload["actual"]))
+                for key in ("predicted", "actual"):
+                    if not isinstance(payload[key], str) or not 0 < len(payload[key]) <= MAX_LABEL_LENGTH:
+                        raise ValueError(f"{key} must be a non-empty string of at most {MAX_LABEL_LENGTH} characters")
+                flow = payload.get("flow")
+                if flow is not None and not isinstance(flow, dict):
+                    raise ValueError("flow must be a JSON object of features")
+                drifted = controller.feedback(str(payload["predicted"]), str(payload["actual"]), flow)
                 self._write(200, {"drift_detected": drifted})
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 self._write(400, {"error": str(exc)})
@@ -121,7 +128,7 @@ def serve(
             f"Port {requested_port} is busy; using available port {port}.",
             flush=True,
         )
-    print(f"Dashboard/API listening on http://{host}:{port}")
+    print(f"Dashboard/API listening on http://{host}:{port}", flush=True)
     stop = threading.Event()
     if monitor_interval is not None:
         threading.Thread(
@@ -150,6 +157,15 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--monitor-interval", type=float, default=None)
+    parser.add_argument(
+        "--min-confidence", type=float, default=0.7,
+        help="predictions below this confidence get the default best-effort policy",
+    )
+    parser.add_argument(
+        "--latency-budget-ms", type=float, default=None,
+        help="switch to --fallback-model if classifying one flow takes longer than this",
+    )
+    parser.add_argument("--fallback-model", help="lightweight model, for example decision_tree.joblib")
     args = parser.parse_args()
     from qos_ml.controller import LiveController
     serve(
@@ -157,6 +173,9 @@ def main() -> None:
             args.model,
             dataset_path=args.dataset,
             retrain_output=args.output_dir,
+            min_confidence=args.min_confidence,
+            latency_budget_ms=args.latency_budget_ms,
+            fallback_model=args.fallback_model,
         ),
         args.host,
         args.port,

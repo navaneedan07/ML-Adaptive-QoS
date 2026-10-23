@@ -36,20 +36,82 @@ available.
 
 ```bash
 python -m pip install -r requirements.txt
+# for the exact versions behind the paper's numbers: python -m pip install -r requirements-lock.txt
 python traffic/feature_extractor.py data/raw data/processed/features.csv
-python traffic/balance_classes.py data/processed/features.csv data/processed/features_balanced.csv
-python -m qos_ml.train data/processed/features_balanced.csv --output-dir models
+python traffic/balance_classes.py data/processed/features.csv data/processed/features_balanced.csv   # optional: no longer needed, training handles imbalance itself
+python -m qos_ml.train data/processed/features.csv --output-dir models --eval-dataset data/processed/features.csv --cv-folds 4
 python -m qos_ml.predict models/random_forest.joblib data/processed/features.csv data/processed/predictions.csv
 python -m pytest
 ```
+
+## Honest evaluation
+
+`qos_ml.train` splits by recording (`source_file`), so a capture is never in both
+train and test, and ignores flows under 10 packets (`--min-packets`) and flows on
+background-service ports such as DNS/LLMNR/mDNS (`--keep-noise-ports` to keep
+them): that chatter only inherits its label from the filename.
+Judge models by **macro F1**, not accuracy. `--eval-dataset` adds a test on the
+natural class mix, `--cv-folds` a cross-validated per-recording score, and
+`--models random_forest svm hist_gb` picks the models.
+
+Slide-ready tables and charts (per-class, per-queue, confusion matrix, confidence
+curve and a recommended `--min-confidence`) come from per-recording
+cross-validation:
+
+```bash
+python -m qos_ml.report data/processed/features.csv --output-dir results/honest
+```
+
+To measure how accuracy grows with the number of packets seen (needs raw PCAPs):
+
+```bash
+python -m traffic.early_packet_study data/raw results/early_packet_accuracy.csv
+```
+
+At runtime, `--min-confidence` (default 0.7) sends low-confidence predictions to
+the default best-effort queue, `--early-packets N` classifies a flow after N
+packets (use a model trained on the same N), feedback posted with the flow's
+features (`{"predicted":..,"actual":..,"flow":{..}}`) is added to the training
+data, and a retrained model replaces the active one only if it is not worse on
+held-out data (the old one is kept as `<model>.prev.joblib`).
+
+## Baselines and latency-budgeted model selection
+
+`python -m qos_ml.report` also compares the ML models with two baselines (no
+classification, and classic port-based classification) and scores each model with
+`cost = alpha * (1 - macro_F1) + beta * inference_ms`, written to
+`results/honest/baseline_comparison.csv` and `model_selection.csv`. Models:
+`random_forest`, `svm`, `hist_gb` and a compact `decision_tree` (the lightweight
+option). At runtime the controller takes `--latency-budget-ms` and
+`--fallback-model models/decision_tree.joblib`: if classifying one flow exceeds the
+budget it switches to the lightweight model. Drift detection uses the paper's
+misclassification rate lambda = 1 - F1 over a sliding window of feedback.
+A 1D-CNN is not implemented.
+
+## Synthetic traffic (testing and demos only)
+
+`traffic/synthetic.py` simulates the six classes so the pipeline can be tested
+without the raw dataset. It is **not real data**; accuracy measured on it says
+nothing about real traffic.
+
+```bash
+python -m traffic.synthetic data/synthetic/features.csv --pcap-dir data/synthetic/pcaps
+python -m traffic.early_packet_study data/synthetic/pcaps results/synthetic_early.csv
+python -m demo.drift_demo --drift 0.8
+```
+
+`demo.drift_demo` shows the adaptive loop: traffic shifts, accuracy drops,
+feedback triggers drift detection and retraining, and accuracy recovers. A
+retrained model is judged on old and recent traffic equally, and recent feedback
+rows are repeated so they outweigh the older dataset.
 
 ## Live closed-loop mode
 
 Train a model once, then start the controller and its local dashboard:
 
 ```bash
-python -m qos_ml.train data/processed/features_balanced.csv --output-dir models
-python -m api.server models/random_forest.joblib --dataset data/processed/features_balanced.csv --output-dir models --port 8080 --monitor-interval 10
+python -m qos_ml.train data/processed/features.csv --output-dir models
+python -m api.server models/random_forest.joblib --dataset data/processed/features.csv --output-dir models --port 8080 --monitor-interval 10
 ```
 
 If port 8080 is already in use, the server automatically tries the next
@@ -70,7 +132,7 @@ namespace. `--in-namespace` prevents nested `ip netns exec` calls:
 
 ```bash
 sudo ip netns exec ns1 python -m qos_ml.controller models/random_forest.joblib \
-  --dataset data/processed/features_balanced.csv \
+  --dataset data/processed/features.csv \
   --live --interface veth1 --namespace ns1 --in-namespace \
   --monitor-interval 10
 ```
@@ -99,8 +161,8 @@ For a simple recording on Windows, use two terminals. In terminal 1, start the
 API with a trained model and a dataset so retraining is enabled:
 
 ```powershell
-python -m qos_ml.train data\processed\features_balanced.csv --output-dir models
-python -m api.server models\random_forest.joblib --dataset data\processed\features_balanced.csv --output-dir models --port 8080
+python -m qos_ml.train data\processed\features.csv --output-dir models
+python -m api.server models\random_forest.joblib --dataset data\processed\features.csv --output-dir models --port 8080
 ```
 
 Open `http://127.0.0.1:8080/dashboard` in the browser. In terminal 2, run:

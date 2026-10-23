@@ -1,0 +1,5 @@
+name,macro_f1,inference_ms,cost,within_budget
+random_forest,0.537,6.736,0.5977,True
+svm,0.417,0.799,0.599,True
+hist_gb,0.562,8.052,0.599,True
+decision_tree,0.477,0.82,0.5394,True

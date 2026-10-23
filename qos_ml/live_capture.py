@@ -15,7 +15,18 @@ from traffic.feature_extractor import extract_features
 
 @dataclass
 class FlowTracker:
+    """Group packets into flows and emit features for each flow.
+
+    With ``early_packets`` set (off by default; only enable it once the model
+    is trained on matching early-packet features), a flow is emitted as soon as it has that many
+    packets, so QoS can be applied while the traffic is still running. A flow
+    is emitted only once; flows that end before reaching the limit are emitted
+    when they go idle. Train with the same value (feature_extractor's
+    ``max_packets``) so the model sees the same kind of features live.
+    """
+
     idle_timeout: float = 5.0
+    early_packets: int | None = None
     source_file: str = "live"
     _flows: dict[tuple[object, ...], dict] = field(default_factory=dict)
 
@@ -36,16 +47,26 @@ class FlowTracker:
                 "proto": key[2], "packets": [], "source_file": self.source_file,
             }
             self._flows[key] = flow
+        if flow.get("emitted"):
+            flow["last_seen"] = float(packet["timestamp"])
+            return self.flush(now)
         flow["packets"].append(packet)
-        return self.flush(now)
+        flow["last_seen"] = float(packet["timestamp"])
+        emitted = []
+        if self.early_packets is not None and len(flow["packets"]) >= self.early_packets:
+            emitted.append(extract_features(flow, self.early_packets))
+            flow["emitted"] = True
+            flow["packets"] = flow["packets"][-1:]  # keep memory bounded
+        return emitted + self.flush(now)
 
     def flush(self, now: float | None = None, force: bool = False) -> list[dict]:
         now = time.time() if now is None else now
         completed = []
         for key, flow in list(self._flows.items()):
-            last = float(flow["packets"][-1]["timestamp"])
+            last = flow.get("last_seen", float(flow["packets"][-1]["timestamp"]))
             if force or now - last >= self.idle_timeout:
-                completed.append(extract_features(flow))
+                if not flow.get("emitted"):
+                    completed.append(extract_features(flow, self.early_packets))
                 del self._flows[key]
         return completed
 
@@ -73,12 +94,13 @@ def sniff_forever(
     *,
     interface: str | None = None,
     idle_timeout: float = 5.0,
+    early_packets: int | None = None,
     stop_filter: Callable[[object], bool] | None = None,
 ) -> None:
     """Capture packets until interrupted and emit completed feature rows."""
     from scapy.sendrecv import sniff
 
-    tracker = FlowTracker(idle_timeout=idle_timeout)
+    tracker = FlowTracker(idle_timeout=idle_timeout, early_packets=early_packets)
 
     def handle(packet: object) -> None:
         try:
