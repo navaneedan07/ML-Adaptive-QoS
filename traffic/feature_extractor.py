@@ -75,12 +75,20 @@ def _burst_count(timestamps):
     return len(bursts), statistics.mean(bursts)
 
 
-def extract_features(flow):
+def extract_features(flow, max_packets=None):
     """
     Compute the feature dict for a single flow (as produced by
     flow_builder.build_flows).
+
+    If max_packets is given, only the first max_packets packets are used.
+    This is how the live controller sees a flow when it must classify early,
+    so training data built with the same value matches what runs live.
     """
     pkts = sorted(flow["packets"], key=lambda p: p["timestamp"])
+    if max_packets is not None:
+        if max_packets < 1:
+            raise ValueError("max_packets must be positive")
+        pkts = pkts[:max_packets]
     sizes = [p["size"] for p in pkts]
     timestamps = [p["timestamp"] for p in pkts]
 
@@ -122,8 +130,8 @@ FIELDNAMES = [
 ]
 
 
-def write_features_csv(flows, output_path):
-    rows = [extract_features(f) for f in flows]
+def write_features_csv(flows, output_path, max_packets=None):
+    rows = [extract_features(f, max_packets) for f in flows]
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
@@ -133,11 +141,12 @@ def write_features_csv(flows, output_path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python feature_extractor.py <pcap_file_or_folder> <output_csv>")
+    if len(sys.argv) not in (3, 4):
+        print("Usage: python feature_extractor.py <pcap_file_or_folder> <output_csv> [max_packets]")
         sys.exit(1)
 
     pcap_target, output_csv = sys.argv[1], sys.argv[2]
+    max_packets = int(sys.argv[3]) if len(sys.argv) == 4 else None
 
     from capture import parse_pcap, parse_folder
     # Support both `python traffic/feature_extractor.py ...` from the
@@ -149,7 +158,7 @@ if __name__ == "__main__":
 
     pkts = parse_folder(pcap_target) if os.path.isdir(pcap_target) else parse_pcap(pcap_target)
     flows = build_flows(pkts)
-    rows = write_features_csv(flows, output_csv)
+    rows = write_features_csv(flows, output_csv, max_packets)
 
     print(f"Wrote {len(rows)} flows to {output_csv}")
     unknown = sum(1 for r in rows if r["label"] == "unknown")

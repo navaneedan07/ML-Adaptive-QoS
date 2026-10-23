@@ -1,0 +1,8 @@
+selected_model,decision_tree
+model,hist_gb
+flows,836
+recordings,23
+class_macro_f1,0.562195802105118
+class_accuracy,0.5794258373205742
+queue_accuracy,0.7078947368421052
+recommended_min_confidence,0.7
